@@ -6,10 +6,10 @@ let Canvas;
 try { Canvas = require("@napi-rs/canvas"); } catch (e) { Canvas = require("canvas"); }
 const { createCanvas, loadImage } = Canvas;
 
-const W = 780;
-const THUMB_H = 430;
-const CARD_H = 570;
-const START_Y = 295;
+const W = 900;
+const THUMB_H = 220;
+const CARD_H = 300;
+const START_Y = 235;
 const PER_PAGE = 4;
 const FONT = 'YTSans, "DejaVu Sans", Arial, sans-serif';
 
@@ -176,90 +176,116 @@ async function buildInfo(api, t) {
 	return { tid: t.threadID, name: shown, image, members, admins, approval };
 }
 
-/* ---------------- renderer ---------------- */
-async function renderCanvas(items, startIndex, userAvatarImg) {
-	const tpl = await prepare();
+/* ---------------- premium renderer ---------------- */
+async function renderCanvas(items, startIndex, userAvatarImg, page = 1, pages = 1, total = items.length) {
 	const n = items.length;
-	const H = Math.max(1620, START_Y + n * CARD_H + 185);
-
+	const H = Math.max(760, START_Y + n * CARD_H + 100);
 	const canvas = createCanvas(W, H);
 	const ctx = canvas.getContext("2d");
-	ctx.fillStyle = "#ffffff";
-	ctx.fillRect(0, 0, W, H);
-	ctx.drawImage(tpl.top, 0, 0);
-	ctx.drawImage(tpl.bottom, 0, H - 168);
-	ctx.textBaseline = "alphabetic";
-	ctx.textAlign = "left";
 
-	// clock + header text
-	ctx.fillStyle = "#000";
-	ctx.font = `bold 38px ${FONT}`;
-	ctx.fillText(dhakaTime(), 70, 58);
-	ctx.fillStyle = "#0f0f0f";
-	ctx.font = `bold 29px ${FONT}`;
-	ctx.fillText("Group List", 119, 144);
+	// Deep navy canvas with subtle ambient glow
+	const bg = ctx.createLinearGradient(0, 0, W, H);
+	bg.addColorStop(0, "#080d1a");
+	bg.addColorStop(0.55, "#10172b");
+	bg.addColorStop(1, "#080b14");
+	ctx.fillStyle = bg;
+	ctx.fillRect(0, 0, W, H);
+	const glow = ctx.createRadialGradient(W * 0.78, 80, 10, W * 0.78, 80, 520);
+	glow.addColorStop(0, "rgba(91,105,255,0.22)");
+	glow.addColorStop(1, "rgba(91,105,255,0)");
+	ctx.fillStyle = glow;
+	ctx.fillRect(0, 0, W, H);
+
+	// Header
+	ctx.fillStyle = "#8b9cff";
+	ctx.font = `bold 18px ${FONT}`;
+	ctx.fillText("SNIVY  /  BOT MANAGER", 42, 48);
+	ctx.fillStyle = "#f5f7ff";
+	ctx.font = `bold 43px ${FONT}`;
+	ctx.fillText("Group Directory", 42, 105);
+	ctx.fillStyle = "#9ba7c4";
+	ctx.font = `22px ${FONT}`;
+	ctx.fillText("All connected conversations, in one place.", 44, 143);
+
+	// Summary pills
+	const pillY = 174;
+	rr(ctx, 42, pillY, 220, 48, 15);
+	ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.fill();
+	ctx.fillStyle = "#e6eaff"; ctx.font = `bold 19px ${FONT}`;
+	ctx.fillText(`TOTAL GROUPS  ${total}`, 60, pillY + 30);
+	rr(ctx, 276, pillY, 200, 48, 15);
+	ctx.fillStyle = "rgba(111,130,255,0.16)"; ctx.fill();
+	ctx.fillStyle = "#aebaff"; ctx.fillText(`PAGE  ${page} / ${pages}`, 294, pillY + 30);
+	ctx.fillStyle = "#7784a5"; ctx.font = `bold 17px ${FONT}`;
+	ctx.textAlign = "right"; ctx.fillText(dhakaTime() + "  ·  BD TIME", W - 42, 204); ctx.textAlign = "left";
 
 	const logos = await Promise.all(items.map((it) => (it.image ? getImg(it.image) : null)));
-	ctx.font = `bold 30px ${FONT}`;
-	const titleLines = items.map((it, i) => wrapTitle(ctx, `${startIndex + i + 1}. ${it.name}`, W - 95 - 25, 2));
+	ctx.font = `bold 24px ${FONT}`;
+	const titleLines = items.map((it, i) => wrapTitle(ctx, `${startIndex + i + 1}. ${it.name}`, 520, 2));
 
 	for (let i = 0; i < n; i++) {
 		const it = items[i];
 		const y = START_Y + i * CARD_H;
-		const ty = y + THUMB_H;
+		// Card and border
+		rr(ctx, 32, y, W - 64, CARD_H - 18, 22);
+		ctx.fillStyle = "rgba(255,255,255,0.055)"; ctx.fill();
+		ctx.strokeStyle = "rgba(160,175,255,0.18)"; ctx.lineWidth = 1.5; ctx.stroke();
 
-		// "thumbnail" = dark panel + group logo
-		const g = ctx.createLinearGradient(0, y, 0, y + THUMB_H);
-		g.addColorStop(0, "#1d2145"); g.addColorStop(1, "#0b0d20");
-		ctx.fillStyle = g; ctx.fillRect(0, y, W, THUMB_H);
+		// Group avatar
+		const ax = 55, ay = y + 28, ar = 112;
+		ctx.save();
+		ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar, 0, Math.PI * 2); ctx.clip();
+		if (logos[i]) drawCover(ctx, logos[i], ax, ay, ar * 2, ar * 2);
+		else {
+			const pg = ctx.createLinearGradient(ax, ay, ax + ar * 2, ay + ar * 2);
+			pg.addColorStop(0, "#4659a8"); pg.addColorStop(1, "#202944");
+			ctx.fillStyle = pg; ctx.fillRect(ax, ay, ar * 2, ar * 2);
+			const first = (it.name || "G").charAt(0).toUpperCase();
+			ctx.fillStyle = "#f5f7ff"; ctx.font = `bold 72px ${FONT}`;
+			ctx.textAlign = "center"; ctx.fillText(first === "N" ? "G" : first, ax + ar, ay + ar + 24); ctx.textAlign = "left";
+		}
+		ctx.restore();
+		ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar + 4, 0, Math.PI * 2);
+		ctx.strokeStyle = "rgba(139,156,255,0.65)"; ctx.lineWidth = 3; ctx.stroke();
 
-		const cx = W / 2, cy = y + THUMB_H / 2, r = 150;
-		ctx.beginPath(); ctx.arc(cx, cy, r + 10, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fill();
-		if (logos[i]) {
-			ctx.save();
-			ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
-			drawCover(ctx, logos[i], cx - r, cy - r, r * 2, r * 2);
-			ctx.restore();
-		} else drawPlaceholder(ctx, cx, cy, r);
-
-		// approval badge (duration badge er jayga)
-		const ap = it.approval === null ? "null" : it.approval ? "ON" : "OFF";
-		const badgeColor = it.approval === null ? "rgba(0,0,0,0.82)" : it.approval ? "rgba(30,142,62,0.95)" : "rgba(198,40,40,0.95)";
-		const label = `Approval ${ap}`;
-		ctx.font = `bold 24px ${FONT}`;
-		const bw = ctx.measureText(label).width + 44, bh = 36;
-		const bx = W - 15 - bw, by = y + THUMB_H - 15 - bh;
-		rr(ctx, bx, by, bw, bh, 4); ctx.fillStyle = badgeColor; ctx.fill();
-		ctx.fillStyle = "#fff"; ctx.textAlign = "center";
-		ctx.fillText(label, bx + bw / 2, by + 26); ctx.textAlign = "left";
-
-		// letter circle
-		const first = (it.name || "").charAt(0);
-		const letter = it.name === "null" ? "?" : /[A-Za-z0-9]/.test(first) ? first.toUpperCase() : "G";
-		ctx.beginPath(); ctx.arc(45, ty + 65, 30, 0, Math.PI * 2); ctx.fillStyle = "#e5e5e5"; ctx.fill();
-		ctx.fillStyle = "#606060"; ctx.font = `bold 28px ${FONT}`; ctx.textAlign = "center";
-		ctx.fillText(letter, 45, ty + 75); ctx.textAlign = "left";
-
-		// title
+		// Name
+		const tx = 305;
+		ctx.fillStyle = "#f3f5ff"; ctx.font = `bold 25px ${FONT}`;
 		const lines = titleLines[i];
-		ctx.fillStyle = "#0f0f0f"; ctx.font = `bold 30px ${FONT}`;
-		const tY = lines.length === 1 ? ty + 56 : ty + 46;
-		lines.forEach((ln, li) => ctx.fillText(ln, 95, tY + li * 36));
+		const titleY = y + 62;
+		lines.forEach((line, li) => ctx.fillText(fitText(ctx, line, 535), tx, titleY + li * 32));
 
-		// details line
-		const m = it.members === null ? "null" : it.members;
-		const a = it.admins === null ? "null" : it.admins;
-		ctx.fillStyle = "#606060"; ctx.font = `bold 24px ${FONT}`;
-		ctx.fillText(fitText(ctx, `Members: ${m} | Admins: ${a} | Approval: ${ap}`, W - 125), 95, lines.length === 1 ? ty + 101 : ty + 123);
+		// Metadata
+		const m = it.members === null ? "—" : it.members;
+		const a = it.admins === null ? "—" : it.admins;
+		const ap = it.approval === null ? "UNKNOWN" : it.approval ? "ENABLED" : "DISABLED";
+		const metaY = y + (lines.length === 1 ? 112 : 136);
+		ctx.fillStyle = "#94a1c2"; ctx.font = `19px ${FONT}`;
+		ctx.fillText(`MEMBERS   ${m}`, tx, metaY);
+		ctx.fillText(`ADMINS   ${a}`, tx + 190, metaY);
+		// Approval status pill
+		const on = it.approval === true;
+		const label = "APPROVAL  " + ap;
+		ctx.font = `bold 16px ${FONT}`;
+		const bw = Math.max(150, ctx.measureText(label).width + 28);
+		rr(ctx, tx, metaY + 22, bw, 34, 10);
+		ctx.fillStyle = it.approval === null ? "rgba(148,161,194,0.15)" : on ? "rgba(52,211,153,0.15)" : "rgba(251,113,133,0.15)"; ctx.fill();
+		ctx.fillStyle = it.approval === null ? "#aab4cb" : on ? "#6ee7b7" : "#fda4af";
+		ctx.fillText(label, tx + 14, metaY + 44);
+
+		// Group index and thread id
+		ctx.fillStyle = "#687694"; ctx.font = `15px ${FONT}`;
+		ctx.fillText(`GROUP ${String(startIndex + i + 1).padStart(2, "0")}`, tx, y + CARD_H - 42);
+		ctx.textAlign = "right";
+		ctx.fillText("ID  " + fitText(ctx, String(it.tid), 290), W - 55, y + CARD_H - 42);
+		ctx.textAlign = "left";
 	}
 
-	// "You" tab = user DP
-	ctx.save();
-	ctx.beginPath(); ctx.arc(702, H - 90, 26, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
-	if (userAvatarImg) drawCover(ctx, userAvatarImg, 676, H - 116, 52, 52);
-	else { ctx.fillStyle = "#cfcfcf"; ctx.fillRect(676, H - 116, 52, 52); }
-	ctx.restore();
-
+	// Footer
+	const fy = H - 35;
+	ctx.fillStyle = "#65718e"; ctx.font = `15px ${FONT}`;
+	ctx.fillText("SNIVY6  •  GROUP DIRECTORY", 42, fy);
+	ctx.textAlign = "right"; ctx.fillText(`PAGE ${page} OF ${pages}`, W - 42, fy); ctx.textAlign = "left";
 	return canvas.toBuffer("image/png");
 }
 
@@ -317,7 +343,7 @@ module.exports = {
 				avatarImg = await getImg(avUrl);
 			} catch (e) { avatarImg = null; }
 
-			const buffer = await renderCanvas(items, startIndex, avatarImg);
+			const buffer = await renderCanvas(items, startIndex, avatarImg, page, pages, groups.length);
 
 			const cacheDir = path.join(__dirname, "cache");
 			fs.ensureDirSync(cacheDir);
