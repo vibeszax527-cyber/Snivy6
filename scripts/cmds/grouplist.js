@@ -102,10 +102,26 @@ function wrapTitle(ctx, text, maxW, maxLines) {
 }
 
 async function getImg(url) {
+	if (typeof url !== "string" || !/^https?:\/\//i.test(url.trim())) return null;
 	try {
-		const res = await axios.get(url, { responseType: "arraybuffer", timeout: 15000 });
-		return await loadImage(Buffer.from(res.data));
+		const res = await axios.get(url.trim(), {
+			responseType: "arraybuffer",
+			timeout: 20000,
+			maxRedirects: 5,
+			headers: {
+				"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+				"Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+				"Referer": "https://www.facebook.com/"
+			},
+			validateStatus: (status) => status >= 200 && status < 400
+		});
+		const buffer = Buffer.from(res.data);
+		if (!buffer.length) throw new Error("empty image response");
+		return await loadImage(buffer);
 	} catch (e) {
+		let host = "unknown-host";
+		try { host = new URL(url).host; } catch (_) {}
+		console.warn("[grouplist] image fetch failed:", host, e.response ? "HTTP " + e.response.status : e.message);
 		return null;
 	}
 }
@@ -339,7 +355,7 @@ module.exports = {
 			try {
 				let avUrl = null;
 				if (usersData && usersData.getAvatarUrl) avUrl = await usersData.getAvatarUrl(senderID);
-				if (!avUrl) avUrl = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+				if (!avUrl) avUrl = `https://graph.facebook.com/${senderID}/picture?width=512&height=512`;
 				avatarImg = await getImg(avUrl);
 			} catch (e) { avatarImg = null; }
 
