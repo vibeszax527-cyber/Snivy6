@@ -194,114 +194,121 @@ async function buildInfo(api, t) {
 
 /* ---------------- premium renderer ---------------- */
 async function renderCanvas(items, startIndex, userAvatarImg, page = 1, pages = 1, total = items.length) {
-	const n = items.length;
-	const H = Math.max(760, START_Y + n * CARD_H + 100);
+	const cols = 2;
+	const rows = Math.ceil(items.length / cols);
+	const cardW = 410, cardH = 245, gapX = 18, gapY = 18;
+	const left = 27, top = 245;
+	const W = 900;
+	const H = Math.max(700, top + rows * cardH + Math.max(0, rows - 1) * gapY + 92);
 	const canvas = createCanvas(W, H);
 	const ctx = canvas.getContext("2d");
 
-	// Deep navy canvas with subtle ambient glow
 	const bg = ctx.createLinearGradient(0, 0, W, H);
-	bg.addColorStop(0, "#080d1a");
-	bg.addColorStop(0.55, "#10172b");
-	bg.addColorStop(1, "#080b14");
-	ctx.fillStyle = bg;
-	ctx.fillRect(0, 0, W, H);
-	const glow = ctx.createRadialGradient(W * 0.78, 80, 10, W * 0.78, 80, 520);
-	glow.addColorStop(0, "rgba(91,105,255,0.22)");
-	glow.addColorStop(1, "rgba(91,105,255,0)");
-	ctx.fillStyle = glow;
-	ctx.fillRect(0, 0, W, H);
+	bg.addColorStop(0, "#070b18"); bg.addColorStop(0.52, "#0d1630"); bg.addColorStop(1, "#070a14");
+	ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+	const glow = ctx.createRadialGradient(680, 70, 10, 680, 70, 480);
+	glow.addColorStop(0, "rgba(32,132,255,0.23)"); glow.addColorStop(1, "rgba(32,132,255,0)");
+	ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
 
-	// Header
-	ctx.fillStyle = "#8b9cff";
-	ctx.font = `bold 18px ${FONT}`;
-	ctx.fillText("SNIVY  /  BOT MANAGER", 42, 48);
-	ctx.fillStyle = "#f5f7ff";
-	ctx.font = `bold 43px ${FONT}`;
-	ctx.fillText("Group Directory", 42, 105);
-	ctx.fillStyle = "#9ba7c4";
-	ctx.font = `22px ${FONT}`;
-	ctx.fillText("All connected conversations, in one place.", 44, 143);
+	// Fine background lines
+	ctx.strokeStyle = "rgba(107,145,255,0.055)"; ctx.lineWidth = 1;
+	for (let x = 0; x < W; x += 42) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
 
-	// Summary pills
-	const pillY = 174;
-	rr(ctx, 42, pillY, 220, 48, 15);
-	ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.fill();
-	ctx.fillStyle = "#e6eaff"; ctx.font = `bold 19px ${FONT}`;
-	ctx.fillText(`TOTAL GROUPS  ${total}`, 60, pillY + 30);
-	rr(ctx, 276, pillY, 200, 48, 15);
-	ctx.fillStyle = "rgba(111,130,255,0.16)"; ctx.fill();
-	ctx.fillStyle = "#aebaff"; ctx.fillText(`PAGE  ${page} / ${pages}`, 294, pillY + 30);
-	ctx.fillStyle = "#7784a5"; ctx.font = `bold 17px ${FONT}`;
-	ctx.textAlign = "right"; ctx.fillText(dhakaTime() + "  ·  BD TIME", W - 42, 204); ctx.textAlign = "left";
+	// Header panel
+	rr(ctx, 26, 24, 848, 184, 24);
+	ctx.fillStyle = "rgba(7,15,34,0.86)"; ctx.fill();
+	ctx.strokeStyle = "rgba(73,151,255,0.34)"; ctx.lineWidth = 1.5; ctx.stroke();
+	ctx.fillStyle = "#64c7ff"; ctx.font = `bold 17px ${FONT}`;
+	ctx.fillText("SNIVY BOT  /  MANAGER", 49, 57);
+	ctx.fillStyle = "#f4f7ff"; ctx.font = `bold 40px ${FONT}`;
+	ctx.fillText("Group Directory", 49, 105);
+	ctx.fillStyle = "#9eafd3"; ctx.font = `19px ${FONT}`;
+	ctx.fillText("Your connected communities at a glance", 51, 137);
+
+	// Summary chips
+	rr(ctx, 49, 155, 175, 34, 11); ctx.fillStyle = "rgba(53,119,255,0.15)"; ctx.fill();
+	ctx.fillStyle = "#c7d7ff"; ctx.font = `bold 15px ${FONT}`;
+	ctx.fillText(`TOTAL GROUPS  ${total}`, 62, 177);
+	rr(ctx, 234, 155, 125, 34, 11); ctx.fillStyle = "rgba(157,91,255,0.15)"; ctx.fill();
+	ctx.fillStyle = "#d9c9ff"; ctx.fillText(`PAGE ${page}/${pages}`, 249, 177);
+	ctx.textAlign = "right"; ctx.fillStyle = "#a9bce3"; ctx.font = `bold 15px ${FONT}`;
+	ctx.fillText(dhakaTime() + "  ·  BD TIME", 847, 177); ctx.textAlign = "left";
 
 	const logos = await Promise.all(items.map((it) => (it.image ? getImg(it.image) : null)));
-	ctx.font = `bold 24px ${FONT}`;
-	const titleLines = items.map((it, i) => wrapTitle(ctx, `${startIndex + i + 1}. ${it.name}`, 520, 2));
-
-	for (let i = 0; i < n; i++) {
+	for (let i = 0; i < items.length; i++) {
 		const it = items[i];
-		const y = START_Y + i * CARD_H;
-		// Card and border
-		rr(ctx, 32, y, W - 64, CARD_H - 18, 22);
-		ctx.fillStyle = "rgba(255,255,255,0.055)"; ctx.fill();
-		ctx.strokeStyle = "rgba(160,175,255,0.18)"; ctx.lineWidth = 1.5; ctx.stroke();
+		const col = i % cols, row = Math.floor(i / cols);
+		const x = left + col * (cardW + gapX), y = top + row * (cardH + gapY);
+		const cardX = x, cardY = y;
+		rr(ctx, cardX, cardY, cardW, cardH, 20);
+		const cg = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+		cg.addColorStop(0, "rgba(19,36,70,0.94)"); cg.addColorStop(1, "rgba(7,13,28,0.96)");
+		ctx.fillStyle = cg; ctx.fill();
+		ctx.strokeStyle = "rgba(68,155,255,0.48)"; ctx.lineWidth = 1.4; ctx.stroke();
 
-		// Group avatar
-		const ax = 55, ay = y + 28, ar = 112;
-		ctx.save();
-		ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar, 0, Math.PI * 2); ctx.clip();
+		// Small group avatar with original fetched image
+		const ax = x + 18, ay = y + 24, ar = 49;
+		ctx.save(); ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar, 0, Math.PI * 2); ctx.clip();
 		if (logos[i]) drawCover(ctx, logos[i], ax, ay, ar * 2, ar * 2);
 		else {
 			const pg = ctx.createLinearGradient(ax, ay, ax + ar * 2, ay + ar * 2);
-			pg.addColorStop(0, "#4659a8"); pg.addColorStop(1, "#202944");
+			pg.addColorStop(0, "#3469d9"); pg.addColorStop(1, "#532a9f");
 			ctx.fillStyle = pg; ctx.fillRect(ax, ay, ar * 2, ar * 2);
-			const first = (it.name || "G").charAt(0).toUpperCase();
-			ctx.fillStyle = "#f5f7ff"; ctx.font = `bold 72px ${FONT}`;
-			ctx.textAlign = "center"; ctx.fillText(first === "N" ? "G" : first, ax + ar, ay + ar + 24); ctx.textAlign = "left";
+			const initial = (clean(it.name || "G").charAt(0) || "G").toUpperCase();
+			ctx.fillStyle = "#fff"; ctx.font = `bold 34px ${FONT}`; ctx.textAlign = "center";
+			ctx.fillText(initial, ax + ar, ay + ar + 12); ctx.textAlign = "left";
 		}
 		ctx.restore();
-		ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar + 4, 0, Math.PI * 2);
-		ctx.strokeStyle = "rgba(139,156,255,0.65)"; ctx.lineWidth = 3; ctx.stroke();
+		ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar + 3, 0, Math.PI * 2);
+		ctx.strokeStyle = "rgba(77,187,255,0.85)"; ctx.lineWidth = 2.5; ctx.stroke();
 
-		// Name
-		const tx = 305;
-		ctx.fillStyle = "#f3f5ff"; ctx.font = `bold 25px ${FONT}`;
-		const lines = titleLines[i];
-		const titleY = y + 62;
-		lines.forEach((line, li) => ctx.fillText(fitText(ctx, line, 535), tx, titleY + li * 32));
+		// Group title
+		ctx.fillStyle = "#f4f7ff"; ctx.font = `bold 19px ${FONT}`;
+		const title = fitText(ctx, clean(it.name || "Unnamed Group"), 278);
+		ctx.fillText(title, x + 132, y + 48);
 
-		// Metadata
-		const m = it.members === null ? "—" : it.members;
-		const a = it.admins === null ? "—" : it.admins;
-		const ap = it.approval === null ? "UNKNOWN" : it.approval ? "ENABLED" : "DISABLED";
-		const metaY = y + (lines.length === 1 ? 112 : 136);
-		ctx.fillStyle = "#94a1c2"; ctx.font = `19px ${FONT}`;
-		ctx.fillText(`MEMBERS   ${m}`, tx, metaY);
-		ctx.fillText(`ADMINS   ${a}`, tx + 190, metaY);
-		// Approval status pill
-		const on = it.approval === true;
-		const label = "APPROVAL  " + ap;
-		ctx.font = `bold 16px ${FONT}`;
-		const bw = Math.max(150, ctx.measureText(label).width + 28);
-		rr(ctx, tx, metaY + 22, bw, 34, 10);
-		ctx.fillStyle = it.approval === null ? "rgba(148,161,194,0.15)" : on ? "rgba(52,211,153,0.15)" : "rgba(251,113,133,0.15)"; ctx.fill();
-		ctx.fillStyle = it.approval === null ? "#aab4cb" : on ? "#6ee7b7" : "#fda4af";
-		ctx.fillText(label, tx + 14, metaY + 44);
+		// Compact status badge
+		const enabled = it.approval === true;
+		const status = it.approval === null ? "UNKNOWN" : enabled ? "APPROVAL ON" : "APPROVAL OFF";
+		ctx.font = `bold 12px ${FONT}`;
+		const sw = ctx.measureText(status).width + 20;
+		rr(ctx, x + 132, y + 62, sw, 25, 9);
+		ctx.fillStyle = it.approval === null ? "rgba(148,163,184,0.14)" : enabled ? "rgba(16,185,129,0.14)" : "rgba(251,113,133,0.13)"; ctx.fill();
+		ctx.fillStyle = it.approval === null ? "#c0cadb" : enabled ? "#6ee7b7" : "#fda4af";
+		ctx.fillText(status, x + 142, y + 79);
 
-		// Group index and thread id
-		ctx.fillStyle = "#687694"; ctx.font = `15px ${FONT}`;
-		ctx.fillText(`GROUP ${String(startIndex + i + 1).padStart(2, "0")}`, tx, y + CARD_H - 42);
-		ctx.textAlign = "right";
-		ctx.fillText("ID  " + fitText(ctx, String(it.tid), 290), W - 55, y + CARD_H - 42);
-		ctx.textAlign = "left";
+		// Metric strip
+		rr(ctx, x + 16, y + 112, cardW - 32, 63, 13);
+		ctx.fillStyle = "rgba(3,9,22,0.66)"; ctx.fill();
+		ctx.strokeStyle = "rgba(113,151,220,0.16)"; ctx.lineWidth = 1; ctx.stroke();
+		const members = it.members === null ? "—" : String(it.members);
+		const admins = it.admins === null ? "—" : String(it.admins);
+		ctx.fillStyle = "#91a9d6"; ctx.font = `13px ${FONT}`;
+		ctx.fillText("MEMBERS", x + 31, y + 135);
+		ctx.fillText("ADMINS", x + 165, y + 135);
+		ctx.fillText("THREAD ID", x + 260, y + 135);
+		ctx.fillStyle = "#f0f5ff"; ctx.font = `bold 19px ${FONT}`;
+		ctx.fillText(fitText(ctx, members, 110), x + 31, y + 160);
+		ctx.fillText(fitText(ctx, admins, 70), x + 165, y + 160);
+		ctx.font = `bold 13px ${FONT}`;
+		ctx.fillText(fitText(ctx, String(it.tid || "—"), 125), x + 260, y + 159);
+
+		// Bottom divider and item index
+		ctx.strokeStyle = "rgba(110,151,230,0.18)";
+		ctx.beginPath(); ctx.moveTo(x + 18, y + 190); ctx.lineTo(x + cardW - 18, y + 190); ctx.stroke();
+		ctx.fillStyle = "#7e96c4"; ctx.font = `bold 13px ${FONT}`;
+		ctx.fillText(`GROUP  ${String(startIndex + i + 1).padStart(2, "0")}`, x + 20, y + 219);
+		ctx.fillStyle = "#68caff"; ctx.textAlign = "right";
+		ctx.fillText("SNIVY DIRECTORY", x + cardW - 20, y + 219); ctx.textAlign = "left";
 	}
 
 	// Footer
-	const fy = H - 35;
-	ctx.fillStyle = "#65718e"; ctx.font = `15px ${FONT}`;
-	ctx.fillText("SNIVY6  •  GROUP DIRECTORY", 42, fy);
-	ctx.textAlign = "right"; ctx.fillText(`PAGE ${page} OF ${pages}`, W - 42, fy); ctx.textAlign = "left";
+	const fy = H - 30;
+	ctx.strokeStyle = "rgba(98,142,240,0.22)";
+	ctx.beginPath(); ctx.moveTo(30, H - 57); ctx.lineTo(W - 30, H - 57); ctx.stroke();
+	ctx.fillStyle = "#8498bf"; ctx.font = `14px ${FONT}`;
+	ctx.fillText("MORE GROUPS. STRONGER COMMUNITY.", 34, fy);
+	ctx.textAlign = "right"; ctx.fillText(`SNIVY BOT  ·  PAGE ${page} OF ${pages}`, W - 34, fy); ctx.textAlign = "left";
 	return canvas.toBuffer("image/png");
 }
 
