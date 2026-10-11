@@ -192,112 +192,111 @@ async function buildInfo(api, t) {
 	return { tid: t.threadID, name: shown, image, members, admins, approval };
 }
 
-/* ---------------- friendly renderer ---------------- */
+/* ---------------- colorful friendly renderer ---------------- */
 async function renderCanvas(items, startIndex, userAvatarImg, page = 1, pages = 1, total = items.length) {
-	const cols = 2;
-	const cardW = 410, cardH = 224, gapX = 18, gapY = 16;
-	const left = 27, top = 218, W = 900;
-	const rows = Math.ceil(items.length / cols);
+	const cols = 2, cardW = 410, cardH = 224, gapX = 18, gapY = 16;
+	const left = 27, top = 218, W = 900, rows = Math.ceil(items.length / cols);
 	const H = Math.max(650, top + rows * cardH + Math.max(0, rows - 1) * gapY + 92);
-	const canvas = createCanvas(W, H);
-	const ctx = canvas.getContext("2d");
+	const canvas = createCanvas(W, H), ctx = canvas.getContext("2d");
 
-	// Warm, friendly light background
 	const bg = ctx.createLinearGradient(0, 0, W, H);
-	bg.addColorStop(0, "#f5f8ff"); bg.addColorStop(0.52, "#eef5ff"); bg.addColorStop(1, "#f8f4ff");
+	bg.addColorStop(0, "#fff3f8"); bg.addColorStop(0.35, "#eff8ff");
+	bg.addColorStop(0.7, "#f4f0ff"); bg.addColorStop(1, "#effcf6");
 	ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-	const glow1 = ctx.createRadialGradient(80, 20, 5, 80, 20, 350);
-	glow1.addColorStop(0, "rgba(101,167,255,0.20)"); glow1.addColorStop(1, "rgba(101,167,255,0)");
-	ctx.fillStyle = glow1; ctx.fillRect(0, 0, W, H);
-	const glow2 = ctx.createRadialGradient(850, 250, 5, 850, 250, 320);
-	glow2.addColorStop(0, "rgba(184,153,255,0.16)"); glow2.addColorStop(1, "rgba(184,153,255,0)");
-	ctx.fillStyle = glow2; ctx.fillRect(0, 0, W, H);
+	const blobs = [
+		[80, 30, 300, "rgba(255,115,164,0.20)"],
+		[810, 130, 310, "rgba(94,169,255,0.19)"],
+		[440, H - 40, 280, "rgba(168,130,255,0.13)"]
+	];
+	for (const [cx, cy, radius, color] of blobs) {
+		const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, radius);
+		g.addColorStop(0, color); g.addColorStop(1, "rgba(255,255,255,0)");
+		ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+	}
 
-	// Header
-	ctx.fillStyle = "#4968a8"; ctx.font = `bold 16px ${FONT}`;
-	ctx.fillText("SNIVY BOT  ·  YOUR COMMUNITIES", 36, 43);
-	ctx.fillStyle = "#172847"; ctx.font = `bold 38px ${FONT}`;
-	ctx.fillText("Your Group List", 34, 88);
-	ctx.fillStyle = "#687b9d"; ctx.font = `19px ${FONT}`;
-	ctx.fillText("All your group chats, neatly organised.", 36, 119);
+	// Bright, welcoming header
+	rr(ctx, 26, 24, 848, 174, 26);
+	const hg = ctx.createLinearGradient(26, 24, 874, 198);
+	hg.addColorStop(0, "#ff6fae"); hg.addColorStop(0.52, "#8a7cff"); hg.addColorStop(1, "#48bfff");
+	ctx.fillStyle = hg; ctx.fill();
+	ctx.fillStyle = "rgba(255,255,255,0.18)";
+	ctx.beginPath(); ctx.arc(820, 40, 90, 0, Math.PI * 2); ctx.fill();
+	ctx.beginPath(); ctx.arc(775, 188, 75, 0, Math.PI * 2); ctx.fill();
+	ctx.fillStyle = "#ffffff"; ctx.font = `bold 16px ${FONT}`;
+	ctx.fillText("✦  SNIVY BOT  ·  YOUR COMMUNITIES", 48, 54);
+	ctx.font = `bold 39px ${FONT}`; ctx.fillText("Your Group List", 46, 101);
+	ctx.font = `18px ${FONT}`; ctx.fillText("Good people. Great communities. All in one place.", 49, 132);
 
-	// Friendly summary chips
-	rr(ctx, 34, 139, 180, 43, 14);
-	ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.strokeStyle = "#dce7fa"; ctx.lineWidth = 1; ctx.stroke();
-	ctx.fillStyle = "#34598e"; ctx.font = `bold 16px ${FONT}`;
-	ctx.fillText(`GROUPS  ${total}`, 49, 166);
-	rr(ctx, 224, 139, 132, 43, 14);
-	ctx.fillStyle = "#e8eaff"; ctx.fill(); ctx.strokeStyle = "#d9ddff"; ctx.stroke();
-	ctx.fillStyle = "#6658ad"; ctx.fillText(`PAGE  ${page}/${pages}`, 240, 166);
-	ctx.fillStyle = "#7b8ba8"; ctx.font = `15px ${FONT}`; ctx.textAlign = "right";
-	ctx.fillText(dhakaTime() + "  ·  BD TIME", W - 36, 166); ctx.textAlign = "left";
+	// Header summary chips
+	rr(ctx, 48, 148, 170, 34, 12); ctx.fillStyle = "rgba(255,255,255,0.93)"; ctx.fill();
+	ctx.fillStyle = "#5a4b9d"; ctx.font = `bold 15px ${FONT}`;
+	ctx.fillText(`GROUPS  ${total}`, 63, 170);
+	rr(ctx, 228, 148, 122, 34, 12); ctx.fillStyle = "rgba(255,255,255,0.82)"; ctx.fill();
+	ctx.fillStyle = "#4a679e"; ctx.fillText(`PAGE ${page}/${pages}`, 243, 170);
+	ctx.textAlign = "right"; ctx.fillStyle = "#ffffff"; ctx.font = `bold 14px ${FONT}`;
+	ctx.fillText(dhakaTime() + "  ·  BD TIME", 847, 170); ctx.textAlign = "left";
 
 	const logos = await Promise.all(items.map((it) => (it.image ? getImg(it.image) : null)));
-	for (let i = 0; i < items.length; i++) {
-		const it = items[i];
-		const col = i % cols, row = Math.floor(i / cols);
-		const x = left + col * (cardW + gapX), y = top + row * (cardH + gapY);
-		rr(ctx, x, y, cardW, cardH, 18);
-		ctx.fillStyle = "#ffffff"; ctx.fill();
-		ctx.strokeStyle = "#dce6f5"; ctx.lineWidth = 1.2; ctx.stroke();
+	const accents = [
+		{ main: "#ff76a8", pale: "#fff0f6", ink: "#b93e77" },
+		{ main: "#54b8ff", pale: "#edf8ff", ink: "#2679b8" },
+		{ main: "#9a83ff", pale: "#f3efff", ink: "#6650bb" },
+		{ main: "#42cba5", pale: "#eafbf5", ink: "#21896e" }
+	];
 
-		// Group avatar
-		const ax = x + 18, ay = y + 19, ar = 42;
+	for (let i = 0; i < items.length; i++) {
+		const it = items[i], col = i % cols, row = Math.floor(i / cols);
+		const x = left + col * (cardW + gapX), y = top + row * (cardH + gapY);
+		const ac = accents[(startIndex + i) % accents.length];
+		rr(ctx, x, y, cardW, cardH, 20); ctx.fillStyle = "#ffffff"; ctx.fill();
+		ctx.strokeStyle = ac.main; ctx.lineWidth = 2; ctx.stroke();
+		// Friendly color stripe
+		rr(ctx, x + 1, y + 1, cardW - 2, 7, 5); ctx.fillStyle = ac.main; ctx.fill();
+
+		// Actual group image or colourful initial fallback
+		const ax = x + 18, ay = y + 21, ar = 42;
 		ctx.save(); ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar, 0, Math.PI * 2); ctx.clip();
 		if (logos[i]) drawCover(ctx, logos[i], ax, ay, ar * 2, ar * 2);
 		else {
 			const pg = ctx.createLinearGradient(ax, ay, ax + ar * 2, ay + ar * 2);
-			pg.addColorStop(0, "#8cbcff"); pg.addColorStop(1, "#b5a4ff");
+			pg.addColorStop(0, ac.main); pg.addColorStop(1, "#7f8cff");
 			ctx.fillStyle = pg; ctx.fillRect(ax, ay, ar * 2, ar * 2);
 			const initial = (clean(it.name || "G").charAt(0) || "G").toUpperCase();
-			ctx.fillStyle = "#ffffff"; ctx.font = `bold 30px ${FONT}`; ctx.textAlign = "center";
+			ctx.fillStyle = "#fff"; ctx.font = `bold 30px ${FONT}`; ctx.textAlign = "center";
 			ctx.fillText(initial, ax + ar, ay + ar + 10); ctx.textAlign = "left";
 		}
-		ctx.restore();
-		ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar + 2, 0, Math.PI * 2);
-		ctx.strokeStyle = "#e0e9fb"; ctx.lineWidth = 3; ctx.stroke();
+		ctx.restore(); ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar + 3, 0, Math.PI * 2);
+		ctx.strokeStyle = ac.main; ctx.lineWidth = 3; ctx.stroke();
 
-		// Group name and small index
-		ctx.fillStyle = "#1d2d4b"; ctx.font = `bold 18px ${FONT}`;
-		ctx.fillText(fitText(ctx, clean(it.name || "Unnamed Group"), 275), x + 118, y + 37);
-		ctx.fillStyle = "#8190aa"; ctx.font = `13px ${FONT}`;
+		ctx.fillStyle = "#253653"; ctx.font = `bold 18px ${FONT}`;
+		ctx.fillText(fitText(ctx, clean(it.name || "Unnamed Group"), 275), x + 118, y + 38);
+		ctx.fillStyle = ac.ink; ctx.font = `bold 12px ${FONT}`;
 		ctx.fillText(`GROUP ${String(startIndex + i + 1).padStart(2, "0")}`, x + 118, y + 59);
 
-		// Soft approval status badge
-		const status = it.approval === null ? "Status unknown" : it.approval ? "Approval on" : "Approval off";
-		ctx.font = `bold 12px ${FONT}`;
-		const sw = ctx.measureText(status).width + 18;
-		rr(ctx, x + 118, y + 70, sw, 23, 10);
-		ctx.fillStyle = it.approval === null ? "#f0f2f7" : it.approval ? "#e5f8ee" : "#fff0f1"; ctx.fill();
-		ctx.fillStyle = it.approval === null ? "#69758a" : it.approval ? "#23845b" : "#b24b58";
-		ctx.fillText(status, x + 127, y + 85);
+		const status = it.approval === null ? "STATUS UNKNOWN" : it.approval ? "✓ APPROVAL ON" : "APPROVAL OFF";
+		ctx.font = `bold 12px ${FONT}`; const sw = ctx.measureText(status).width + 20;
+		rr(ctx, x + 118, y + 70, sw, 24, 10);
+		ctx.fillStyle = it.approval === null ? "#f0f2f7" : it.approval ? "#e2f8ed" : "#fff0f1"; ctx.fill();
+		ctx.fillStyle = it.approval === null ? "#68758a" : it.approval ? "#23845b" : "#b24b58";
+		ctx.fillText(status, x + 128, y + 86);
 
-		// Soft metric area
-		rr(ctx, x + 16, y + 108, cardW - 32, 59, 13);
-		ctx.fillStyle = "#f6f8fc"; ctx.fill(); ctx.strokeStyle = "#edf1f8"; ctx.lineWidth = 1; ctx.stroke();
-		const members = it.members === null ? "—" : String(it.members);
-		const admins = it.admins === null ? "—" : String(it.admins);
-		ctx.fillStyle = "#8492aa"; ctx.font = `12px ${FONT}`;
-		ctx.fillText("MEMBERS", x + 29, y + 130);
-		ctx.fillText("ADMINS", x + 153, y + 130);
-		ctx.fillText("THREAD ID", x + 247, y + 130);
-		ctx.fillStyle = "#253958"; ctx.font = `bold 17px ${FONT}`;
-		ctx.fillText(fitText(ctx, members, 95), x + 29, y + 153);
-		ctx.fillText(fitText(ctx, admins, 60), x + 153, y + 153);
-		ctx.font = `bold 12px ${FONT}`;
-		ctx.fillText(fitText(ctx, String(it.tid || "—"), 124), x + 247, y + 152);
+		rr(ctx, x + 16, y + 108, cardW - 32, 59, 13); ctx.fillStyle = ac.pale; ctx.fill();
+		const members = it.members === null ? "—" : String(it.members), admins = it.admins === null ? "—" : String(it.admins);
+		ctx.fillStyle = ac.ink; ctx.font = `12px ${FONT}`;
+		ctx.fillText("MEMBERS", x + 29, y + 130); ctx.fillText("ADMINS", x + 153, y + 130); ctx.fillText("THREAD ID", x + 247, y + 130);
+		ctx.fillStyle = "#253653"; ctx.font = `bold 17px ${FONT}`;
+		ctx.fillText(fitText(ctx, members, 95), x + 29, y + 153); ctx.fillText(fitText(ctx, admins, 60), x + 153, y + 153);
+		ctx.font = `bold 12px ${FONT}`; ctx.fillText(fitText(ctx, String(it.tid || "—"), 124), x + 247, y + 152);
 
-		// Friendly bottom label
-		ctx.fillStyle = "#9aa7bb"; ctx.font = `13px ${FONT}`;
-		ctx.fillText("Group details", x + 19, y + 196);
-		ctx.fillStyle = "#6384bd"; ctx.textAlign = "right";
-		ctx.fillText("SNIVY BOT", x + cardW - 19, y + 196); ctx.textAlign = "left";
+		ctx.strokeStyle = "#edf0f7"; ctx.beginPath(); ctx.moveTo(x + 18, y + 184); ctx.lineTo(x + cardW - 18, y + 184); ctx.stroke();
+		ctx.fillStyle = "#8492aa"; ctx.font = `13px ${FONT}`; ctx.fillText("Glad you're here!", x + 19, y + 207);
+		ctx.textAlign = "right"; ctx.fillStyle = ac.ink; ctx.font = `bold 12px ${FONT}`;
+		ctx.fillText("SNIVY BOT", x + cardW - 19, y + 207); ctx.textAlign = "left";
 	}
 
 	const fy = H - 28;
-	ctx.strokeStyle = "#e0e8f5"; ctx.beginPath(); ctx.moveTo(30, H - 53); ctx.lineTo(W - 30, H - 53); ctx.stroke();
-	ctx.fillStyle = "#7889a5"; ctx.font = `14px ${FONT}`;
-	ctx.fillText("Made for your community.", 34, fy);
+	ctx.strokeStyle = "rgba(113,137,181,0.24)"; ctx.beginPath(); ctx.moveTo(30, H - 53); ctx.lineTo(W - 30, H - 53); ctx.stroke();
+	ctx.fillStyle = "#71819d"; ctx.font = `14px ${FONT}`; ctx.fillText("A LITTLE COLOR. A LOT OF COMMUNITY.  ✦", 34, fy);
 	ctx.textAlign = "right"; ctx.fillText(`SNIVY BOT  ·  PAGE ${page} OF ${pages}`, W - 34, fy); ctx.textAlign = "left";
 	return canvas.toBuffer("image/png");
 }
