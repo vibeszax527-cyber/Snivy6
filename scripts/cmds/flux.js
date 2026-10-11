@@ -1,57 +1,95 @@
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
-const API_BASE = "https://flux-api-ariyan.vercel.app";
+const baseApiUrl = async () => {
+        const base = await axios.get("https://raw.githubusercontent.com/mahmudx7/HINATA/main/baseApiUrl.json");
+        return base.data.mahmud;
+};
 
 module.exports = {
-  config: {
-    name: "flux",
-    aliases: ["fx"],
-    version: "1.0",
-    author: "Ariyan",
-    role: 0,
-    category: "image",
-    guide: {
-      en: "{pn} a cute anime cat"
-    }
-  },
+        config: {
+                name: "flux",
+                version: "1.7",
+                author: "MahMUD",
+                countDown: 15,
+                role: 0,
+                description: {
+                        bn: "ফ্লাক্স প্রো মডেল দিয়ে উন্নত এআই ছবি তৈরি করুন",
+                        en: "Generate high-quality AI images using Flux Pro model",
+                        vi: "Tạo hình ảnh AI chất lượng cao bằng mô hình Flux Pro"
+                },
+                category: "image gen",
+                guide: {
+                        bn: '   {pn} <prompt> --ratio <value>: ছবি তৈরি করতে বর্ণনা ও রেশিও দিন',
+                        en: '   {pn} <prompt> --ratio <value>: Provide description and ratio',
+                        vi: '   {pn} <prompt> --ratio <value>: Cung cấp mô tả và tỷ lệ'
+                }
+        },
 
-  onStart: async function ({ message, args }) {
-    const prompt = args.join(" ").trim();
-    if (!prompt) {
-      return message.reply("Example: -flux a cute anime cat");
-    }
+        langs: {
+                bn: {
+                        noPrompt: "× বেবি, ছবি তৈরি করার জন্য কিছু তো লেখো!",
+                        wait: "✅ প্রো ছবি তৈরি হচ্ছে, একটু অপেক্ষা করো বেবি...!! <😘",
+                        success: "𝐇𝐞𝐫𝐞'𝐬 𝐲𝐨𝐮𝐫 𝐟𝐥𝐮𝐱 𝐩𝐫𝐨 𝐢𝐦𝐚𝐠𝐞 𝐛𝐚𝐛𝐲 <😘",
+                        error: "× সমস্যা হয়েছে: %1। প্রয়োজনে Contact MahMUD।\n•WhatsApp: 01836298139"
+                },
+                en: {
+                        noPrompt: "× Baby, please provide a prompt to generate image!",
+                        wait: "🔄 | Generating your image, please wait...",
+                        success: "𝐇𝐞𝐫𝐞'𝐬 𝐲𝐨𝐮𝐫 𝐟𝐥𝐮𝐱 𝐩𝐫𝐨 𝐢𝐦𝐚𝐠 e 𝐛𝐚𝐛𝐲 <😘",
+                        error: "× API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
+                },
+                vi: {
+                        noPrompt: "× Cưng ơi, vui lòng nhập mô tả để tạo ảnh!",
+                        wait: "✅ Đang tạo ảnh Pro, vui lòng chờ chút...!! <😘",
+                        success: "Ảnh Flux Pro của cưng đây <😘",
+                        error: "× Lỗi: %1. Liên hệ MahMUD để hỗ trợ.\n•WhatsApp: 01836298139"
+                }
+        },
 
-    let waitMsg;
+        onStart: async function ({ api, event, args, message, getLang }) {
+                const authorName = String.fromCharCode(77, 97, 104, 77, 85, 68);
+                if (this.config.author !== authorName) {
+                        return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
+                }
 
-    try {
-      waitMsg = await message.reply("Generating image... Please wait");
+                const fullArgs = args.join(" ");
+                if (!fullArgs) return message.reply(getLang("noPrompt"));
 
-      const res = await axios.get(
-        `${API_BASE}/generate?prompt=${encodeURIComponent(prompt)}`,
-        { timeout: 120000 }
-      );
+                const [prompt, ratio = "1:1"] = fullArgs.includes("--ratio") 
+                        ? fullArgs.split("--ratio").map(s => s.trim()) 
+                        : [fullArgs, "1:1"];
 
-      if (!res.data?.status || !res.data?.image) {
-        throw new Error("Invalid API response");
-      }
+                const cacheDir = path.join(__dirname, "cache");
+                const filePath = path.join(cacheDir, `fluxpro_${Date.now()}.png`);
+                if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
-      if (waitMsg?.messageID) {
-        await message.unsend(waitMsg.messageID);
-      }
+                try {
+                        api.setMessageReaction("⏳", event.messageID, () => {}, true);
+                        const waitMsg = await message.reply(getLang("wait"));
 
-      return message.reply({
-        body: `Flux Image Generated\n\nPrompt: ${prompt}`,
-        attachment: await global.utils.getStreamFromURL(res.data.image)
-      });
+                        const baseUrl = await baseApiUrl();
+                        const url = `${baseUrl}/api/fluxpro?prompt=${encodeURIComponent(prompt)}&ratio=${ratio}`;
 
-    } catch (err) {
-      if (waitMsg?.messageID) {
-        await message.unsend(waitMsg.messageID);
-      }
+                        const response = await axios.get(url, { responseType: "arraybuffer", timeout: 120000 });
+                        fs.writeFileSync(filePath, Buffer.from(response.data));
 
-      return message.reply(
-        "Image generation failed. Try again in a few seconds."
-      );
-    }
-  }
+                        if (waitMsg?.messageID) api.unsendMessage(waitMsg.messageID);
+                        api.setMessageReaction("✅", event.messageID, () => {}, true);
+
+                        return message.reply({
+                                body: getLang("success"),
+                                attachment: fs.createReadStream(filePath)
+                        }, () => {
+                                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                        });
+
+                } catch (err) {
+                        console.error("Flux Pro Error:", err);
+                        api.setMessageReaction("❌", event.messageID, () => {}, true);
+                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                        return message.reply(getLang("error", err.message));
+                }
+        }
 };
